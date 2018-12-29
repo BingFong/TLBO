@@ -1,12 +1,10 @@
-/* teaching phase : vew x should be constrainted.*/
-/* check is random fit???? */
 #include <iostream>
 #include <time.h>
 #include <cmath>
 using namespace std;
 
 #define PS 50 //population size
-#define maxCycle 1
+#define maxCycle 100
 #define D 13 //13 designed variables
 #define LOWER_BOUND 0
 #define UPPER_BOUND_1 1                          //i = 1,2,3,..,9
@@ -16,13 +14,17 @@ using namespace std;
 
 int population[PS][D];
 int teach_population[PS][D];
-int f[PS];              //fitness of population
+int f[PS]; //fitness of population
+int f_teach[PS];
 int globalMin = 0;      //global best obj value
 int globalObjParams[D]; //global best obj params
 int teacher[D];         //teacher
 int mean[D];            //mean of population
 int sum_var[D] = {};    //sumary of every designed variable
 int fitness_sum = 0;
+
+void calculateFitness(int index, int population[][D], int f[]);
+int subject_to_constraints(int index, int population[][D]);
 
 int calculate_teaching_fitness(int index)
 {
@@ -41,10 +43,11 @@ int calculate_teaching_fitness(int index)
 void teaching() //x=1~13 fix
 {
     cout << endl;
-    cout << "TEACH : ";
-    int fit;
+    cout << "TEACH PHASE : " << endl;
+    int fit = 0;
     for (int i = 0; i < PS; i++)
     {
+        int threshold = 0;
         double R = RANDOM;
         double T = RANDOM;
         if (T < 0.5)
@@ -55,6 +58,7 @@ void teaching() //x=1~13 fix
         {
             T = 2.0;
         }
+        cout << i << " : ";
         for (int j = 0; j < D; j++)
         {
             double x_new;
@@ -62,15 +66,27 @@ void teaching() //x=1~13 fix
             teach_population[i][j] = round(x_new);
             cout << teach_population[i][j] << ", ";
         }
+        cout << endl;
 
-        fit += calculate_teaching_fitness(i);
+        threshold = subject_to_constraints(i, teach_population);
+        if (threshold == 1)
+        {
+            calculateFitness(i, teach_population, f_teach);
+        }
+        else
+        {
+            i--;
+        }
+    }
+    for (int i = 0; i < PS; i++)
+    {
+        fit += f_teach[i];
     }
 
-    if (fitness_sum < fit)
+    if (fit < fitness_sum)
     {
-
-        cout << endl
-             << "cool" << endl;
+        cout << "teach success!" << endl;
+        cout << fit << " < " << fitness_sum << endl;
         for (int i = 0; i < PS; i++)
         {
             for (int j = 0; j < D; j++)
@@ -145,7 +161,7 @@ void memorize_best_solution()
          << best_solution_number << endl;
 }
 
-void calculateFitness(int index)
+void calculateFitness(int index, int population[][D], int f[])
 {
     f[index] = 0;
 
@@ -156,11 +172,24 @@ void calculateFitness(int index)
     {
         f[index] -= population[index][i];
     }
-    cout << index << ":" << f[index] << endl;
+    cout << "fitness " << index << " : " << f[index] << endl;
 }
 
-int subject_to_constraints(int index)
+int subject_to_constraints(int index, int population[][D])
 {
+    for (int i = 0; i < 9; i++)
+    {
+        if (population[index][i] > 1 || population[index][i] < 0)
+            return 0;
+    }
+    for (int i = 9; i < 12; i++)
+    {
+        if (population[index][i] > 100 || population[index][i] < 0)
+            return 0;
+    }
+    if (population[index][12] > 1 || population[index][12] < 0)
+        return 0;
+
     int Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9;
     Q1 = 2 * population[index][0] + 2 * population[index][1] + population[index][9] + population[index][10] - 10;
     if (Q1 > 0)
@@ -237,10 +266,10 @@ void initialize()
     {
         int threshold = 0;
         init(i); /* randomly generate 13 designed variables*/
-        threshold = subject_to_constraints(i);
+        threshold = subject_to_constraints(i, population);
         if (threshold == 1)
         {
-            calculateFitness(i);
+            calculateFitness(i, population, f);
         }
         else
         {
