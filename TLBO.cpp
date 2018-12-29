@@ -1,10 +1,11 @@
+/*Is RANDOM leagle?*/
 #include <iostream>
 #include <time.h>
 #include <cmath>
 using namespace std;
 
 #define PS 50 //population size
-#define maxCycle 100
+#define maxCycle 500
 #define D 13 //13 designed variables
 #define LOWER_BOUND 0
 #define UPPER_BOUND_1 1                          //i = 1,2,3,..,9
@@ -14,9 +15,11 @@ using namespace std;
 
 int population[PS][D];
 int teach_population[PS][D];
+int learn_population[PS][D];
 int f[PS]; //fitness of population
 int f_teach[PS];
-int globalMin = 0;      //global best obj value
+int f_learner[PS];
+int globalMin[2] = {};  //global best obj value
 int globalObjParams[D]; //global best obj params
 int teacher[D];         //teacher
 int mean[D];            //mean of population
@@ -25,6 +28,67 @@ int fitness_sum = 0;
 
 void calculateFitness(int index, int population[][D], int f[]);
 int subject_to_constraints(int index, int population[][D]);
+
+void learner()
+{
+    int fit = 0;
+
+    for (int i = 0; i < PS; i++)
+    {
+        int threshold = 0;
+        double R = RANDOM;
+        int J = rand() % 50;
+        if (i != J || i == 0)
+        {
+            if (f[i] < f[J])
+            {
+                for (int j = 0; j < D; j++)
+                {
+                    double x_new;
+                    x_new = population[i][j] + R * (population[i][j] - population[J][j]);
+                    learn_population[i][j] = round(x_new);
+                }
+            }
+            else
+            {
+                for (int j = 0; j < D; j++)
+                {
+                    double x_new;
+                    x_new = population[i][j] + R * (population[J][j] - population[i][j]);
+                    learn_population[i][j] = round(x_new);
+                }
+            }
+
+            threshold = subject_to_constraints(i, learn_population);
+            if (threshold == 1)
+            {
+                calculateFitness(i, learn_population, f_learner);
+            }
+            else
+                i--;
+        }
+        else
+            i--;
+    }
+
+    for (int i = 0; i < PS; i++)
+    {
+        fit += f_learner[i];
+    }
+
+    if (fit < fitness_sum)
+    {
+        for (int i = 0; i < PS; i++)
+        {
+            for (int j = 0; j < D; j++)
+            {
+                population[i][j] = learn_population[i][j];
+            }
+            f[i] = f_learner[i];
+        }
+        fitness_sum = fit;
+    }
+}
 
 int calculate_teaching_fitness(int index)
 {
@@ -40,33 +104,21 @@ int calculate_teaching_fitness(int index)
     return f[index];
 }
 
-void teaching() //x=1~13 fix
+void teaching()
 {
-    cout << endl;
-    cout << "TEACH PHASE : " << endl;
     int fit = 0;
     for (int i = 0; i < PS; i++)
     {
         int threshold = 0;
         double R = RANDOM;
-        double T = RANDOM;
-        if (T < 0.5)
-        {
-            T = 1.0;
-        }
-        else
-        {
-            T = 2.0;
-        }
-        cout << i << " : ";
+        double T = 1 + round(RANDOM);
+
         for (int j = 0; j < D; j++)
         {
             double x_new;
             x_new = population[i][j] + R * (teacher[j] - T * mean[j]);
             teach_population[i][j] = round(x_new);
-            cout << teach_population[i][j] << ", ";
         }
-        cout << endl;
 
         threshold = subject_to_constraints(i, teach_population);
         if (threshold == 1)
@@ -85,15 +137,15 @@ void teaching() //x=1~13 fix
 
     if (fit < fitness_sum)
     {
-        cout << "teach success!" << endl;
-        cout << fit << " < " << fitness_sum << endl;
         for (int i = 0; i < PS; i++)
         {
             for (int j = 0; j < D; j++)
             {
                 population[i][j] = teach_population[i][j];
             }
+            f[i] = f_teach[i];
         }
+        fitness_sum = fit;
     }
 }
 
@@ -132,33 +184,34 @@ void calculate_mean()
     {
         mean[i] = sum_var[i] / PS;
         sum_var[i] = 0; // -> ZERO
-        cout << mean[i] << ", ";
     }
 }
 void memorize_best_solution()
 {
-    int best_solution_number;
+    int best_solution_number, if_found = 0;
 
     /*find best fitness*/
     for (int j = 0; j < PS; j++)
     {
-        if (f[j] < globalMin)
+        if (f[j] < globalMin[0])
         {
-            globalMin = f[j];
+            globalMin[0] = f[j];
             best_solution_number = j;
+            if_found = 1;
         }
-        fitness_sum += f[j];
     }
-
-    /*memorize best variables*/
-    cout << "globalObjParams : ";
-    for (int i = 0; i < D; i++)
+    if (if_found == 1)
     {
-        globalObjParams[i] = population[best_solution_number][i];
-        cout << globalObjParams[i] << ", ";
+        fitness_sum = 0;
+        for (int i = 0; i < PS; i++)
+        {
+            fitness_sum += f[i];
+        }
+        for (int i = 0; i < D; i++)
+        {
+            globalObjParams[i] = population[best_solution_number][i];
+        }
     }
-    cout << endl
-         << best_solution_number << endl;
 }
 
 void calculateFitness(int index, int population[][D], int f[])
@@ -172,7 +225,6 @@ void calculateFitness(int index, int population[][D], int f[])
     {
         f[index] -= population[index][i];
     }
-    cout << "fitness " << index << " : " << f[index] << endl;
 }
 
 int subject_to_constraints(int index, int population[][D])
@@ -261,7 +313,6 @@ void init(int index)
 
 void initialize()
 {
-
     for (int i = 0; i < PS; i++)
     {
         int threshold = 0;
@@ -281,20 +332,29 @@ void initialize()
 int main()
 {
     srand(time(NULL));
-    int iter = 0;
 
     initialize();
     memorize_best_solution();
 
-    for (int i = iter; i < maxCycle; i++)
+    for (int i = 0; i < maxCycle; i++)
     {
         /* teacher_phase();*/
         calculate_mean();
         iter_teacher();
         teaching();
 
-        /*learer_phase();*/
+        /*learner_phase();*/
+        learner();
+        memorize_best_solution();
     }
+    cout << "global fit :" << globalMin[0] << endl;
+    cout << "Params : ";
+    for (int j = 0; j < D; j++)
+    {
+        cout << globalObjParams[j] << " , ";
+    }
+    cout << endl;
+
     system("PAUSE");
     return 0;
 }
