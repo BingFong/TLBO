@@ -18,7 +18,7 @@ int teach_population[PS][D];
 int learn_population[PS][D];
 int f[PS]; //fitness of population
 int f_teach[PS];
-int f_learner[PS];
+int f_learn[PS];
 int globalMin[2] = {};  //global best obj value
 int globalObjParams[D]; //global best obj params
 int teacher[D];         //teacher
@@ -29,7 +29,7 @@ int fitness_sum = 0;
 void calculateFitness(int index, int population[][D], int f[]);
 int subject_to_constraints(int index, int population[][D]);
 
-void learner()
+void learning()
 {
     int fit = 0;
 
@@ -37,7 +37,7 @@ void learner()
     {
         int threshold = 0;
         double R = RANDOM;
-        int J = rand() % 50;
+        int J = rand() % PS;
         if (i != J || i == 0)
         {
             if (f[i] < f[J])
@@ -62,7 +62,7 @@ void learner()
             threshold = subject_to_constraints(i, learn_population);
             if (threshold == 1)
             {
-                calculateFitness(i, learn_population, f_learner);
+                calculateFitness(i, learn_population, f_learn);
             }
             else
                 i--;
@@ -73,7 +73,7 @@ void learner()
 
     for (int i = 0; i < PS; i++)
     {
-        fit += f_learner[i];
+        fit += f_learn[i];
     }
 
     if (fit < fitness_sum)
@@ -84,24 +84,10 @@ void learner()
             {
                 population[i][j] = learn_population[i][j];
             }
-            f[i] = f_learner[i];
+            f[i] = f_learn[i];
         }
         fitness_sum = fit;
     }
-}
-
-int calculate_teaching_fitness(int index)
-{
-    f[index] = 0;
-
-    f[index] += 5 * (teach_population[index][0] + teach_population[index][1] + teach_population[index][2] + teach_population[index][3]);
-
-    f[index] -= 5 * (teach_population[index][0] * teach_population[index][0] + teach_population[index][1] * teach_population[index][1] + teach_population[index][2] * teach_population[index][2] + teach_population[index][3] * teach_population[index][3]);
-    for (int i = 4; i < 13; i++)
-    {
-        f[index] -= teach_population[index][i];
-    }
-    return f[index];
 }
 
 void teaching()
@@ -111,7 +97,7 @@ void teaching()
     {
         int threshold = 0;
         double R = RANDOM;
-        double T = 1 + round(RANDOM);
+        int T = 1 + round(RANDOM);
 
         for (int j = 0; j < D; j++)
         {
@@ -149,7 +135,7 @@ void teaching()
     }
 }
 
-void iter_teacher()
+void iter_of_teacher()
 {
     int iter_fitness = 0;
     int teacher_num;
@@ -170,7 +156,7 @@ void iter_teacher()
 
 void calculate_mean()
 {
-    /*sumary  every designed variable*/
+    /*sumary every designed variable*/
     for (int j = 0; j < PS; j++)
     {
         for (int k = 0; k < D; k++)
@@ -338,20 +324,20 @@ int main()
 
     for (int i = 0; i < maxCycle; i++)
     {
-        /* teacher_phase();*/
+        /*teacher_phase*/
         calculate_mean();
-        iter_teacher();
+        iter_of_teacher();
         teaching();
 
-        /*learner_phase();*/
-        learner();
+        /*learner_phase*/
+        learning();
         memorize_best_solution();
     }
-    cout << "global fit :" << globalMin[0] << endl;
+    cout << "globalMin : " << globalMin[0] << endl;
     cout << "Params : ";
     for (int j = 0; j < D; j++)
     {
-        cout << globalObjParams[j] << " , ";
+        cout << globalObjParams[j] << " ";
     }
     cout << endl;
 
